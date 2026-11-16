@@ -204,12 +204,9 @@ class Tarefa(Base):
     # -------------------------------------------------------------- operações
 
     def concluir(self, agora: datetime | None = None) -> None:
-        """Conclui a tarefa e registra o momento (RN-03).
+        if self.status is StatusTarefa.CONCLUIDA:
+             return
 
-        Concluir uma tarefa já concluída não faz nada — em particular, **não**
-        sobrescreve a data original. É esse caso que impede que editar o título
-        de uma tarefa antiga falsifique a sua data de conclusão.
-        """
         self._status = StatusTarefa.CONCLUIDA.value
         self._concluido_em = agora or agora_utc()
 
