@@ -1,3 +1,6 @@
+from typing import Literal
+
+from app.exceptions import TituloObrigatorio, ValorInvalido
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -26,9 +29,9 @@ def test_tarefa_nasce_pendente_e_sem_data_de_conclusao():
  assert tarefa.concluido_em is None
  
 def test_titulo_e_gravado_sem_espacos_nas_pontas():
- assert nova_tarefa(titulo=" Revisar ").titulo == "Revisar"
+ assert nova_tarefa(titulo=" Revisar ").titulo == "Revisar" # type: ignore
 def test_prioridade_aceita_enum_e_texto():
- assert nova_tarefa(prioridade=PrioridadeTarefa.ALTA).prioridade == "alta"
+ assert nova_tarefa(prioridade=PrioridadeTarefa.ALTA).prioridade == "alta" # type: ignore
  assert nova_tarefa(prioridade="urgente").prioridade == "urgente"
 
 def test_tarefa_sem_prazo_nunca_esta_atrasada():
@@ -139,3 +142,29 @@ def test_concluir_tarefa_ja_concluida_preserva_a_data_original():
     tarefa.concluir(agora=original)
     tarefa.concluir(agora=datetime(2026, 3, 1, 15, 30, 0))
     assert tarefa.concluido_em == original
+    
+# =============================================================================
+# Dia 3 — `@pytest.mark.parametrize`: a mesma regra, várias entradas
+# =============================================================================
+
+@pytest.mark.parametrize("titulo_invalido", ["", "  "])
+def test_titulo_vazio_e_recusado(titulo_invalido):
+    with pytest.raises(TituloObrigatorio):
+        nova_tarefa(titulo=titulo_invalido)
+        
+@pytest.mark.parametrize("nome_invalido", ["", " ", "\t", "\n"])
+def test_nome_vazio_e_recusado(nome_invalido):
+    with pytest.raises(ValorInvalido):
+        novo_usuario(nome=nome_invalido)
+        
+@pytest.mark.parametrize(
+    "informado, esperado",
+    [
+        ("ana@exemplo.com", "ana@exemplo.com"),
+        ("ANA@EXEMPLO.COM", "ana@exemplo.com"),
+        (" ana@exemplo.com ", "ana@exemplo.com"),
+        ("Ana@Exemplo.Com\n", "ana@exemplo.com"),
+    ],
+)  
+def test_normalizar_email_padroniza_espacos_e_maiusculas(informado, esperado):
+    assert Usuario.normalizar_email(informado) == esperado
