@@ -31,3 +31,4 @@ def test_url_de_sqlite_nao_e_alterada():
 def test_parametros_da_url_sao_preservados():
     url = "postgres://u:s@host:5432/banco?sslmode=require"
     assert normalizar_url(url).endswith("?sslmode=require")
+
