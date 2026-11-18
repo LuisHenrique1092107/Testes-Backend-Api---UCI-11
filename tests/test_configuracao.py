@@ -61,3 +61,63 @@ def test_a_mensagem_de_erro_diz_onde_o_env_foi_procurado(monkeypatch):
     with pytest.raises(RuntimeError, match="DATABASE_URL") as erro:
         Configuracao.do_ambiente()
     assert str(CAMINHO_DO_ENV) in str(erro.value)
+
+# ------------------------------------------------------- leitura do ambiente
+def test_postgres_e_reconhecido_como_banco_em_servidor(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgres://u:s@host:5432/banco")
+    configuracao = Configuracao.do_ambiente()
+    assert configuracao.dialeto == "postgresql"
+    assert configuracao.banco_em_servidor is True
+    assert configuracao.banco_em_memoria is False
+    
+def test_sqlite_em_memoria_e_reconhecido(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    assert Configuracao.do_ambiente().banco_em_memoria is True
+
+def test_sem_variavel_de_ambiente_as_origens_sao_as_de_desenvolvimento(monkeypatch):
+    monkeypatch.delenv("ORIGENS_PERMITIDAS", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    assert Configuracao.do_ambiente().origens_permitidas == ORIGENS_PADRAO
+
+def test_origens_permitidas_aceita_lista_separada_por_virgula(monkeypatch):
+    monkeypatch.setenv(
+        "ORIGENS_PERMITIDAS", "https://a.com , https://b.com ,, https://c.com"
+    )
+    origens = Configuracao.do_ambiente().origens_permitidas
+    assert origens == ("https://a.com", "https://b.com", "https://c.com")
+
+@pytest.mark.parametrize("valor", ["1", "true", "TRUE", "sim"])
+def test_echo_sql_ligado(monkeypatch, valor):
+    monkeypatch.setenv("ECHO_SQL", valor)
+    assert Configuracao.do_ambiente().echo_sql is True
+
+@pytest.mark.parametrize("valor", ["", "0", "false", "nao"])
+def test_echo_sql_desligado(monkeypatch, valor):
+    monkeypatch.setenv("ECHO_SQL", valor)
+    assert Configuracao.do_ambiente().echo_sql is False
+
+def test_configuracao_e_imutavel():
+    configuracao = Configuracao(url_banco="sqlite://", segredo_jwt="segredo")
+    with pytest.raises(Exception):
+        configuracao.url_banco = "sqlite:///outro.db"
+        
+# ------------------------------------------------------- de onde vem o `.env`
+
+def test_o_env_e_procurado_na_raiz_do_projeto():
+    assert CAMINHO_DO_ENV.name == ".env"
+    assert CAMINHO_DO_ENV.parent == RAIZ_DO_PROJETO
+    assert (RAIZ_DO_PROJETO / "requirements.txt").exists()
+    assert (RAIZ_DO_PROJETO / "app").is_dir()
+    
+def test_o_caminho_do_env_e_absoluto():
+    assert CAMINHO_DO_ENV.is_absolute()
+    
+def test_variavel_do_ambiente_vence_o_arquivo_env(tmp_path, monkeypatch):
+    from dotenv import load_dotenv
+    arquivo = tmp_path / ".env"
+    arquivo.write_text(
+        "DATABASE_URL=postgresql+psycopg://do-arquivo/banco", encoding="utf-8"
+    )
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    load_dotenv(arquivo)
+    assert Configuracao.do_ambiente().url_banco == "sqlite://"
