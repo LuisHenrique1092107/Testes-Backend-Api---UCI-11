@@ -121,3 +121,58 @@ def test_variavel_do_ambiente_vence_o_arquivo_env(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "sqlite://")
     load_dotenv(arquivo)
     assert Configuracao.do_ambiente().url_banco == "sqlite://"
+
+# ------------------------------------------------ o segredo que assina o token
+def test_sem_jwt_secret_a_aplicacao_recusa_subir(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        Configuracao.do_ambiente()
+    
+def test_a_mensagem_de_jwt_secret_ensina_a_gerar_um(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    with pytest.raises(RuntimeError) as erro:
+        Configuracao.do_ambiente()
+    assert "secrets.token_urlsafe" in str(erro.value)
+ 
+def test_segredo_de_exemplo_e_aceito_com_sqlite(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./dev.db")
+    monkeypatch.setenv("JWT_SECRET", SEGREDO_DE_EXEMPLO)
+    assert Configuracao.do_ambiente().segredo_jwt == SEGREDO_DE_EXEMPLO
+
+def test_segredo_de_exemplo_e_recusado_com_banco_de_servidor(monkeypatch):
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql+psycopg://u:s@host:5432/banco"
+    )
+    monkeypatch.setenv("JWT_SECRET", SEGREDO_DE_EXEMPLO)
+    with pytest.raises(RuntimeError, match="valor de exemplo"):
+        Configuracao.do_ambiente()
+        
+def test_segredo_proprio_e_aceito_com_banco_de_servidor(monkeypatch):
+    """A recusa é do valor de exemplo, não de usar PostgreSQL."""
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql+psycopg://u:s@host:5432/banco"
+    )
+    monkeypatch.setenv("JWT_SECRET", "um-segredo-gerado-de-verdade-com-32-bytes")
+    assert Configuracao.do_ambiente().banco_em_servidor is True
+        
+@pytest.mark.parametrize("curto", ["x", "segredo", "a" * 31])
+def test_segredo_curto_e_recusado(monkeypatch, curto):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("JWT_SECRET", curto)
+    with pytest.raises(RuntimeError, match="minimo e 32|mínimo é 32"):
+        Configuracao.do_ambiente()
+    
+def test_segredo_com_exatamente_32_bytes_e_aceito(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("JWT_SECRET", "a" * 32)
+    assert Configuracao.do_ambiente().segredo_jwt == "a" * 32
+    
+def test_o_segredo_de_exemplo_atende_ao_tamanho_minimo():
+    assert len(SEGREDO_DE_EXEMPLO.encode("utf-8")) >= TAMANHO_MINIMO_DO_SEGREDO
+ 
+def test_tamanho_e_medido_em_bytes_nao_em_caracteres(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("JWT_SECRET", "ç" * 17)
+    assert Configuracao.do_ambiente().segredo_jwt == "ç" * 17
