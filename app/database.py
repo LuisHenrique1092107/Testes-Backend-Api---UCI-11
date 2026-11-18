@@ -63,6 +63,7 @@ def _ativar_chaves_estrangeiras(conexao_dbapi: Any, _registro: Any) -> None:
     """
     if isinstance(conexao_dbapi, sqlite3.Connection):
         cursor = conexao_dbapi.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
 
