@@ -52,3 +52,4 @@ def test_tarefa_orfa_e_recusada_pelo_banco(sessao):
     sessao.add(Tarefa(usuario_id=9999, titulo="Tarefa de usuário inexistente"))
     with pytest.raises(IntegrityError):
         sessao.commit()
+
