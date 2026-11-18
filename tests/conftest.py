@@ -21,6 +21,16 @@ def hasher() -> HashBcrypt:
     return HashBcrypt(custo=4)
 
 
+@pytest.fixture
+def sessao() -> Session:
+    sessao = SessionLocal()
+    try:
+        yield sessao
+    finally:
+        sessao.rollback()
+        sessao.close()
+
+
 # =============================================================================
 # Dia 5 — o banco: limpo antes, limpo depois
 # =============================================================================

@@ -28,5 +28,6 @@ psycopg[binary]
 # programa. Instalar a suíte de testes no servidor de produção é carregar
 # código que nunca vai rodar lá.
 
+
 pytest
 httpx
