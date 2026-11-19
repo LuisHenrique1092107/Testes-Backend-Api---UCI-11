@@ -66,7 +66,6 @@ class UsuarioOut(EsquemaDeSaida):
     id: int
     nome: str
     email: EmailStr
-    senha_hash: str
     criado_em: datetime
 
 
@@ -79,7 +78,7 @@ class SessaoOut(EsquemaDeSaida):
     (ver `app/tokens.py`: o conteúdo de um JWT é legível por qualquer um).
 
     `tokenType` acompanha o padrão `Bearer` do cabeçalho `Authorization`, para
-    que o cliente possa montar o cabeçalho sem supor o esquema.
+    que o cliente possa mclass UsuarioOutontar o cabeçalho sem supor o esquema.
     """
 
     access_token: str
