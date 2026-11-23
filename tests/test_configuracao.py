@@ -1,4 +1,8 @@
 import pytest
+
+# Dia 8 — segredo de teste
+SEGREDO_LONGO = "segredo-de-teste-com-mais-de-trinta-e-dois-bytes"
+
 from app.config import (
  CAMINHO_DO_ENV,
  ORIGENS_PADRAO,
@@ -176,3 +180,37 @@ def test_tamanho_e_medido_em_bytes_nao_em_caracteres(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "sqlite://")
     monkeypatch.setenv("JWT_SECRET", "ç" * 17)
     assert Configuracao.do_ambiente().segredo_jwt == "ç" * 17
+
+# =============================================================================
+# Dia 8 — a validade do token
+# =============================================================================
+
+
+def test_validade_padrao_do_token_e_de_sete_dias(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("JWT_SECRET", SEGREDO_LONGO)
+    monkeypatch.delenv("JWT_EXPIRACAO_HORAS", raising=False)
+    assert Configuracao.do_ambiente().validade_do_token_em_horas == 168.0
+
+
+def test_validade_do_token_vem_do_ambiente(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("JWT_SECRET", SEGREDO_LONGO)
+    monkeypatch.setenv("JWT_EXPIRACAO_HORAS", "0.5")
+    assert Configuracao.do_ambiente().validade_do_token_em_horas == 0.5
+
+
+@pytest.mark.parametrize("valor_invalido", ["meia hora", "-1", "0"])
+def test_validade_do_token_invalida_e_recusada(monkeypatch, valor_invalido):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("JWT_SECRET", SEGREDO_LONGO)
+    monkeypatch.setenv("JWT_EXPIRACAO_HORAS", valor_invalido)
+    with pytest.raises(RuntimeError, match="JWT_EXPIRACAO_HORAS"):
+        Configuracao.do_ambiente()
+
+
+def test_validade_vazia_conta_como_nao_declarada(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("JWT_SECRET", SEGREDO_LONGO)
+    monkeypatch.setenv("JWT_EXPIRACAO_HORAS", "")
+    assert Configuracao.do_ambiente().validade_do_token_em_horas == 168.0
