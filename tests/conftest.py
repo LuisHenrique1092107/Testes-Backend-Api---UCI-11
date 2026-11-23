@@ -84,3 +84,18 @@ def sessao_aberta(cliente: TestClient) -> dict:
 @pytest.fixture
 def usuario(sessao_aberta: dict) -> dict:
     return sessao_aberta["usuario"]
+
+# =============================================================================
+# Dia 8 — a sessão aberta
+# =============================================================================
+
+
+@pytest.fixture
+def token(sessao_aberta: dict) -> str:
+    return sessao_aberta["accessToken"]
+
+
+@pytest.fixture
+def cliente_logado(cliente: TestClient, token: str) -> TestClient:
+    cliente.headers["Authorization"] = f"Bearer {token}"
+    return cliente
