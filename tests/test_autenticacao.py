@@ -4,6 +4,9 @@ import jwt
 import pytest
 from app.exceptions import NaoAutenticado, SessaoExpirada
 from app.tokens import ALGORITMO, TokenDeAcesso
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+from app.models import Usuario
 
 #: Segredo próprio deste arquivo, com mais de 32 bytes.
 
@@ -64,3 +67,47 @@ def test_token_sem_sub_utilizavel_e_recusado(tokens: TokenDeAcesso):
 def test_token_nao_guarda_dados_pessoais(tokens: TokenDeAcesso):
     conteudo = jwt.decode(tokens.emitir(42), SEGREDO, algorithms=[ALGORITMO])
     assert set(conteudo) == {"sub", "iat", "exp"}
+
+# =============================================================================
+# Dia 8 — o cabeçalho `Authorization`, pela API
+# =============================================================================
+
+
+def test_sem_cabecalho_responde_401(cliente: TestClient):
+    assert cliente.get("/tasks").status_code == 401
+
+
+@pytest.mark.parametrize(
+    "cabecalho",
+    [
+        "token-sem-esquema",
+        "Basic YWxhZGRpbjpvcGVuc2VzYW1l",
+        "Bearer",
+        "Bearer   ",
+    ],
+)
+def test_cabecalho_mal_formado_responde_401(
+    cliente: TestClient, cabecalho: str
+):
+    resposta = cliente.get("/tasks", headers={"Authorization": cabecalho})
+    assert resposta.status_code == 401
+
+def test_token_valido_de_conta_apagada_responde_401(
+    cliente: TestClient, sessao_aberta: dict, sessao: Session
+):
+    autorizacao = {"Authorization": f"Bearer {sessao_aberta['accessToken']}"}
+    assert cliente.get("/usuarios/eu", headers=autorizacao).status_code == 200
+
+    apagado = sessao.get(Usuario, sessao_aberta["usuario"]["id"])
+    sessao.delete(apagado)
+    sessao.commit()
+
+    assert cliente.get("/usuarios/eu", headers=autorizacao).status_code == 401
+
+
+def test_openapi_declara_o_esquema_bearer(cliente: TestClient):
+    esquema = cliente.get("/openapi.json").json()
+    esquemas = esquema["components"].get("securitySchemes", {})
+    assert any(
+        definicao.get("scheme") == "bearer" for definicao in esquemas.values()
+    )
