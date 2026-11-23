@@ -111,3 +111,80 @@ def test_openapi_declara_o_esquema_bearer(cliente: TestClient):
     assert any(
         definicao.get("scheme") == "bearer" for definicao in esquemas.values()
     )
+    
+# =============================================================================
+# Dia 9 — duas contas e a cobertura
+# =============================================================================
+
+def tarefa_de(cliente: TestClient, sessao: dict, titulo: str) -> dict:
+    resposta = cliente.post(
+        "/tasks",
+        json={"titulo": titulo},
+        headers={"Authorization": f"Bearer {sessao['accessToken']}"},
+    )
+    assert resposta.status_code == 201, resposta.text
+    return resposta.json()
+
+
+def test_a_listagem_so_traz_as_tarefas_do_dono_do_token(
+    cliente: TestClient, sessao_aberta: dict, outro_usuario: dict
+):
+    tarefa_de(cliente, sessao_aberta, "Minha")
+    tarefa_de(cliente, outro_usuario, "Dele")
+
+    minhas = cliente.get(
+        "/tasks",
+        headers={"Authorization": f"Bearer {sessao_aberta['accessToken']}"},
+    )
+    assert [t["titulo"] for t in minhas.json()] == ["Minha"]
+    assert minhas.headers["X-Total-Count"] == "1"
+
+
+def test_nao_se_altera_a_tarefa_de_outra_conta(
+    cliente: TestClient, sessao_aberta: dict, outro_usuario: dict
+):
+    alheia = tarefa_de(cliente, outro_usuario, "Tarefa do Bruno")
+
+    resposta = cliente.patch(
+        f"/tasks/{alheia['id']}",
+        json={"titulo": "Invadida"},
+        headers={"Authorization": f"Bearer {sessao_aberta['accessToken']}"},
+    )
+    assert resposta.status_code == 403
+    assert resposta.json()["detail"] == "Esta tarefa pertence a outro usuário."
+
+
+def test_nao_se_apaga_a_tarefa_de_outra_conta(
+    cliente: TestClient, sessao_aberta: dict, outro_usuario: dict
+):
+    alheia = tarefa_de(cliente, outro_usuario, "Tarefa do Bruno")
+
+    resposta = cliente.delete(
+        f"/tasks/{alheia['id']}",
+        headers={"Authorization": f"Bearer {sessao_aberta['accessToken']}"},
+    )
+    assert resposta.status_code == 403
+
+
+def test_a_tarefa_recusada_continua_intacta(
+    cliente: TestClient, sessao_aberta: dict, outro_usuario: dict
+):
+    dele = {"Authorization": f"Bearer {outro_usuario['accessToken']}"}
+    alheia = tarefa_de(cliente, outro_usuario, "Original")
+
+    cliente.patch(
+        f"/tasks/{alheia['id']}",
+        json={"titulo": "Invadida"},
+        headers={"Authorization": f"Bearer {sessao_aberta['accessToken']}"},
+    )
+
+    depois = cliente.get("/tasks", headers=dele).json()
+    assert [t["titulo"] for t in depois] == ["Original"]
+
+
+def test_tarefa_inexistente_responde_404_e_nao_403(
+    cliente_logado: TestClient,
+):
+    assert cliente_logado.delete("/tasks/9999").status_code == 404
+    
+    

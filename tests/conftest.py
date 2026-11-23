@@ -99,3 +99,21 @@ def token(sessao_aberta: dict) -> str:
 def cliente_logado(cliente: TestClient, token: str) -> TestClient:
     cliente.headers["Authorization"] = f"Bearer {token}"
     return cliente
+
+# =============================================================================
+# Dia 9 — duas contas e a cobertura
+# =============================================================================
+
+@pytest.fixture
+def outro_usuario(cliente: TestClient) -> dict:
+    resposta = cliente.post(
+        "/usuarios",
+        json={
+            "nome": "Bruno Lima",
+            "email": "bruno@exemplo.com",
+            "senha": "senha456",
+        },
+    )
+    assert resposta.status_code == 201, resposta.text
+    return resposta.json()
+
