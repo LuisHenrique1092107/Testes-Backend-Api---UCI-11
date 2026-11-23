@@ -31,3 +31,4 @@ psycopg[binary]
 
 pytest
 httpx
+pytest-cov
